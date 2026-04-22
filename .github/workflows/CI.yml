@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    name: Julia ${{ matrix.julia-version }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        julia-version: ["1.12"]
+        os: [ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.julia-version }}
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.julia/packages
+            ~/.julia/compiled
+          key: ${{ runner.os }}-julia-${{ matrix.julia-version }}-${{ hashFiles('Project.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-julia-${{ matrix.julia-version }}-
+
+      - name: Instantiate
+        run: julia --project -e 'import Pkg; Pkg.instantiate()'
+
+      - name: Build native dependencies (OMParser shared library)
+        run: |
+          which unzip || sudo apt-get install -y --no-install-recommends unzip
+          JULIA_VER=$(julia -e 'print(VERSION.major, ".", VERSION.minor)')
+          PKG_SRC=$(julia --project -e 'print(Base.locate_package(Base.identify_package("OMParser")))')
+          PKG_ROOT=$(dirname $(dirname "$PKG_SRC"))
+          LIB_DIR="$PKG_ROOT/lib/ubuntu"
+          mkdir -p "$LIB_DIR"
+          URL="https://github.com/OpenModelica/OMParser.jl/releases/download/Latest-ubuntu-latest-julia-${JULIA_VER}/parser-library-ubuntu-latest-julia-${JULIA_VER}.zip"
+          curl -fsSL "$URL" -o /tmp/omparser.zip
+          unzip -o /tmp/omparser.zip -d "$LIB_DIR"
+          rm /tmp/omparser.zip
+
+      - name: Install OpenModelica (omc)
+        run: |
+          sudo apt-get install -y --no-install-recommends ca-certificates curl gnupg lsb-release
+          curl -fsSL https://build.openmodelica.org/apt/openmodelica.asc \
+            | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/openmodelica.gpg
+          echo "deb https://build.openmodelica.org/apt \
+            $(lsb_release -cs) stable" \
+            | sudo tee /etc/apt/sources.list.d/openmodelica.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends omc
+          omc --version
+
+      - name: Run tests
+        run: julia --project -e 'import Pkg; Pkg.test()'

@@ -1,0 +1,23 @@
+# Julia
+Manifest.toml
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+config.toml
+
+# Dotfiles and dot-directories (IDE settings, tool caches, local configs)
+.*
+# Keep tracked example/template dotfiles
+!.gitignore
+!.github
+!.mcp.json.example
+
+# Generated data / index database
+/data/
+
+# Cloned dependency repos (legacy, no longer used)
+/deps/repos/
+
+# Editor
+*.swp
+*~

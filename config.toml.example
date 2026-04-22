@@ -1,0 +1,73 @@
+# MetaModelicaRag configuration example
+#
+# Copy this file to config.toml and edit the paths for your machine.
+# config.toml is listed in .gitignore and will not be committed.
+
+# ---------------------------------------------------------------------------
+# Embedding backend
+#
+# Three backends are supported. GitHub Models is the default because it
+# does not require you to install or run a local server.
+#
+#   "github_models" — Free hosted OpenAI-compatible embedding API.
+#                     150 requests/day for any GitHub user.
+#                     Only prerequisite: export GITHUB_TOKEN=github_pat_...
+#                     (any GitHub personal access token; no special scopes).
+#
+#   "ollama"        — Use a locally running Ollama instance.
+#                     Install: https://ollama.com
+#                     Pull the model once: `ollama pull nomic-embed-text`
+#
+#   "llama"         — Use llama-server from llama.cpp directly.
+#                     Julia starts the server automatically when needed.
+#                     Requires a GGUF embedding model file on disk.
+#                     Recommended model: Qwen3-Embedding-8B-Q8_0.gguf
+# ---------------------------------------------------------------------------
+
+[embeddings]
+backend    = "github_models"           # "github_models", "ollama", or "llama"
+model      = "text-embedding-3-small"  # github_models: "text-embedding-3-small" or "text-embedding-3-large"
+                                       # ollama:         "nomic-embed-text" or similar
+batch_size = 32                        # number of chunks sent per embedding request
+
+# url is only used by the "ollama" and "llama" backends.
+# Uncomment and set when switching to one of those:
+# url = "http://localhost:11434"   # Ollama default
+# url = "http://localhost:8080"    # llama-server default
+
+# ---------------------------------------------------------------------------
+# llama-server settings
+#
+# Only used when backend = "llama".
+# Julia starts the server automatically and stops it on exit.
+# ---------------------------------------------------------------------------
+
+[server]
+llama_server = "~/llama.cpp/build/bin/llama-server"                # path to the llama-server binary
+model_path   = "~/llama.cpp/models/Qwen3-Embedding-8B-Q8_0.gguf"  # path to GGUF model file
+
+# ---------------------------------------------------------------------------
+# Index database
+#
+# SQLite file that stores all parsed chunks and their embedding vectors.
+# The directory is created automatically on first run.
+# ---------------------------------------------------------------------------
+
+[store]
+path = "data/index.db"   # can be absolute or relative to the project root
+
+# ---------------------------------------------------------------------------
+# MetaModelica source tree to index
+#
+# root       — top-level directory; all .mo files underneath are indexed.
+#              Point this at your OpenModelica compiler source, e.g.:
+#                /home/you/Projects/OpenModelica/OMCompiler
+#              The indexer is incremental: only changed files are re-embedded
+#              on subsequent runs.
+#
+# extensions — file extensions to include. MetaModelica source uses .mo.
+# ---------------------------------------------------------------------------
+
+[codebase]
+root       = "/path/to/OpenModelica/OMCompiler"
+extensions = [".mo"]
