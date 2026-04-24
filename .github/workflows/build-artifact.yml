@@ -49,18 +49,6 @@ jobs:
       - name: Build native dependencies (OMParser shared library)
         run: julia --startup-file=no --project -e 'import Pkg; Pkg.build("OMParser")'
 
-      - name: Install OpenModelica (omc)
-        run: |
-          sudo apt-get install -y --no-install-recommends ca-certificates curl gnupg lsb-release
-          curl -fsSL https://build.openmodelica.org/apt/openmodelica.asc \
-            | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/openmodelica.gpg
-          echo "deb https://build.openmodelica.org/apt \
-            $(lsb_release -cs) stable" \
-            | sudo tee /etc/apt/sources.list.d/openmodelica.list
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends omc
-          omc --version
-
       - name: Build application bundle (make build)
         run: make build
 
