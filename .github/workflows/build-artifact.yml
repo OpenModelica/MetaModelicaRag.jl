@@ -1,0 +1,106 @@
+name: Build Artifact (Linux)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Linux artifact / Julia ${{ matrix.julia-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        julia-version: ["1.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.julia-version }}
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.julia/packages
+            ~/.julia/compiled
+          key: ${{ runner.os }}-julia-build-${{ matrix.julia-version }}-${{ hashFiles('Project.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-julia-build-${{ matrix.julia-version }}-
+
+      - name: Add Julia registries
+        run: |
+          julia --startup-file=no --project -e '
+            import Pkg
+            regs = Dict(r.name => r for r in Pkg.Registry.reachable_registries())
+            haskey(regs, "General") || Pkg.Registry.add(Pkg.RegistrySpec(url="https://github.com/JuliaRegistries/General.git"))
+            haskey(regs, "OpenModelica") || Pkg.Registry.add(Pkg.RegistrySpec(url="https://github.com/JKRT/OpenModelicaRegistry.git"))
+          '
+
+      - name: Instantiate project
+        run: julia --startup-file=no --project -e 'import Pkg; Pkg.instantiate()'
+
+      - name: Build native dependencies (OMParser shared library)
+        run: julia --startup-file=no --project -e 'import Pkg; Pkg.build("OMParser")'
+
+      - name: Install OpenModelica (omc)
+        run: |
+          sudo apt-get install -y --no-install-recommends ca-certificates curl gnupg lsb-release
+          curl -fsSL https://build.openmodelica.org/apt/openmodelica.asc \
+            | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/openmodelica.gpg
+          echo "deb https://build.openmodelica.org/apt \
+            $(lsb_release -cs) stable" \
+            | sudo tee /etc/apt/sources.list.d/openmodelica.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends omc
+          omc --version
+
+      - name: Build application bundle (make build)
+        run: make build
+
+      - name: Verify bundle layout
+        run: |
+          test -x build/mm-jl-rag
+          test -x build/mm-jl-rag-app/bin/mm-jl-rag
+
+      - name: Determine artifact version
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Package tarball
+        id: package
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARCHIVE="mm-jl-rag-${VERSION}-linux-x86_64.tar.gz"
+          tar -C build -czf "$ARCHIVE" mm-jl-rag mm-jl-rag-app
+          sha256sum "$ARCHIVE" > "${ARCHIVE}.sha256"
+          echo "archive=${ARCHIVE}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mm-jl-rag-linux-x86_64
+          path: |
+            ${{ steps.package.outputs.archive }}
+            ${{ steps.package.outputs.archive }}.sha256
+          if-no-files-found: error
+
+      - name: Attach to GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.package.outputs.archive }}
+            ${{ steps.package.outputs.archive }}.sha256
+          fail_on_unmatched_files: true
