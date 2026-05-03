@@ -14,11 +14,6 @@ OMParser = "11f87224-cae7-4e99-a924-e50d12f62c59"
 SQLite = "0aa819cd-b072-5ff4-a722-6bc24af294d9"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 
-[sources]
-Absyn = {url = "https://github.com/OpenModelica/Absyn.jl"}
-MetaModelica = {url = "https://github.com/OpenModelica/MetaModelica.jl"}
-OMParser = {rev = "550b20beae60f226be6afa2b9c02005c7bb20618", url = "https://github.com/OpenModelica/OMParser.jl"}
-
 [compat]
 Absyn = "1.3.3"
 HTTP = "1"

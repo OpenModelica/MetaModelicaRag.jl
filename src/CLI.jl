@@ -13,6 +13,92 @@ export main, index_lib
 
 const VALID_EMBED_BACKENDS = Set(["ollama", "llama", "github_models"])
 
+const CLI_VERSION = "0.1.0"
+
+const HELP_TEXT = """
+mm-jl-rag — semantic search for MetaModelica source
+
+Usage:
+  mm-jl-rag <command> [options]
+
+Commands:
+  index                  Build or update the embedding index
+  serve                  Start the MCP stdio server
+  search <query>         Semantic search over the index
+  fuzzy  <pattern>       Case-insensitive substring search over symbol names
+
+Options:
+  --config PATH, -c      Path to config.toml (overrides auto-discovery)
+  --force                Force full rebuild (index command only)
+  --top-k N, -k N        Limit results (search/fuzzy)
+  --help, -h             Show this help text
+  --version, -V          Show version
+
+Config auto-discovery order:
+  1. --config PATH
+  2. \$MM_JL_RAG_CONFIG
+  3. \$PWD/config.toml
+  4. \$MM_JL_RAG_HOME/config.toml  (set by the installed launcher)
+  5. \$XDG_CONFIG_HOME/mm-jl-rag/config.toml  (or ~/.config/mm-jl-rag/config.toml)
+"""
+
+"""
+    resolve_config_path(override) -> String or nothing
+
+Search for config.toml at runtime. Returns the first existing path in priority
+order, or `nothing` if none is found. `override` is the value passed via
+`--config`/`-c` and always wins (even if the file does not exist, so the caller
+can report it to the user verbatim).
+"""
+function resolve_config_path(override::Union{Nothing, String} = nothing)::Union{String, Nothing}
+    override !== nothing && return isabspath(override) ? override : abspath(override)
+
+    from_env = get(ENV, "MM_JL_RAG_CONFIG", "")
+    isempty(from_env) || return from_env
+
+    pwd_config = joinpath(pwd(), "config.toml")
+    isfile(pwd_config) && return pwd_config
+
+    app_home = get(ENV, "MM_JL_RAG_HOME", "")
+    if !isempty(app_home)
+        p = joinpath(app_home, "config.toml")
+        isfile(p) && return p
+    end
+
+    xdg = get(ENV, "XDG_CONFIG_HOME", "")
+    if isempty(xdg)
+        home = get(ENV, "HOME", "")
+        isempty(home) || (xdg = joinpath(home, ".config"))
+    end
+    if !isempty(xdg)
+        p = joinpath(xdg, "mm-jl-rag", "config.toml")
+        isfile(p) && return p
+    end
+
+    return nothing
+end
+
+function config_search_trace()::String
+    pwd_config = joinpath(pwd(), "config.toml")
+    app_home   = get(ENV, "MM_JL_RAG_HOME", "")
+    xdg        = get(ENV, "XDG_CONFIG_HOME", "")
+    if isempty(xdg)
+        home = get(ENV, "HOME", "")
+        isempty(home) || (xdg = joinpath(home, ".config"))
+    end
+    lines = ["Config not found. Looked in:",
+             "  --config PATH            (not provided)",
+             "  \$MM_JL_RAG_CONFIG        $(isempty(get(ENV,\"MM_JL_RAG_CONFIG\",\"\")) ? \"(unset)\" : ENV[\"MM_JL_RAG_CONFIG\"])",
+             "  \$PWD/config.toml         $pwd_config",
+             "  \$MM_JL_RAG_HOME/config.toml   " *
+                 (isempty(app_home) ? "(\$MM_JL_RAG_HOME unset)" : joinpath(app_home, "config.toml")),
+             "  XDG config dir           " *
+                 (isempty(xdg) ? "(no \$HOME or \$XDG_CONFIG_HOME)" : joinpath(xdg, "mm-jl-rag", "config.toml")),
+             "",
+             "Create one from config.toml.example, or pass --config PATH."]
+    join(lines, "\n")
+end
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------

@@ -37,7 +37,7 @@ jobs:
             import Pkg
             regs = Dict(r.name => r for r in Pkg.Registry.reachable_registries())
             haskey(regs, "General") || Pkg.Registry.add(Pkg.RegistrySpec(url="https://github.com/JuliaRegistries/General.git"))
-            haskey(regs, "OpenModelica") || Pkg.Registry.add(Pkg.RegistrySpec(url="https://github.com/JKRT/OpenModelicaRegistry.git"))
+            haskey(regs, "OpenModelica") || Pkg.Registry.add(Pkg.RegistrySpec(url="https://github.com/OpenModelica/OpenModelicaRegistry.git"))
           '
 
       - name: Instantiate
