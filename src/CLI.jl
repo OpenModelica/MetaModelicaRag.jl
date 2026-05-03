@@ -86,9 +86,11 @@ function config_search_trace()::String
         home = get(ENV, "HOME", "")
         isempty(home) || (xdg = joinpath(home, ".config"))
     end
+    mm_config_env = get(ENV, "MM_JL_RAG_CONFIG", "")
+    mm_config_str = isempty(mm_config_env) ? "(unset)" : mm_config_env
     lines = ["Config not found. Looked in:",
              "  --config PATH            (not provided)",
-             "  \$MM_JL_RAG_CONFIG        $(isempty(get(ENV,\"MM_JL_RAG_CONFIG\",\"\")) ? \"(unset)\" : ENV[\"MM_JL_RAG_CONFIG\"])",
+             "  \$MM_JL_RAG_CONFIG        $mm_config_str",
              "  \$PWD/config.toml         $pwd_config",
              "  \$MM_JL_RAG_HOME/config.toml   " *
                  (isempty(app_home) ? "(\$MM_JL_RAG_HOME unset)" : joinpath(app_home, "config.toml")),
